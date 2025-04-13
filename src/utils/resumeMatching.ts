@@ -60,19 +60,52 @@ export const extractRequirementsFromJobDescription = (jobDescription: string) =>
   };
 };
 
-// Function to match resumes against job description
+// Function to compute embedding for a text (simplified version for demo)
+// In a real app, this would use a proper embedding model like HuggingFace
+const computeEmbedding = (text: string): number[] => {
+  // This is a simplified mock function for demonstration
+  // In reality, you would use a proper embedding model
+  const mockEmbedding = new Array(128).fill(0).map(() => Math.random());
+  return mockEmbedding;
+};
+
+// Compute cosine similarity between two vectors
+const cosineSimilarity = (a: number[], b: number[]): number => {
+  if (a.length !== b.length) {
+    throw new Error("Vectors must have the same length");
+  }
+  
+  let dotProduct = 0;
+  let normA = 0;
+  let normB = 0;
+  
+  for (let i = 0; i < a.length; i++) {
+    dotProduct += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  
+  if (normA === 0 || normB === 0) {
+    return 0;
+  }
+  
+  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+};
+
+// Function to match resumes against job description using embeddings
 export const matchResumesToJob = (
   resumes: any[],
   jobRequirements: string[]
 ): ResumeMatchResult[] => {
-  return resumes.map(resume => {
+  // First get the traditional keyword-based matches
+  const keywordMatches = resumes.map(resume => {
     const text = resume.text.toLowerCase();
     const matchedKeywords = jobRequirements.filter(keyword => 
       text.includes(keyword.toLowerCase())
     );
     
     // Calculate match score
-    const matchScore = Math.round(
+    const keywordMatchScore = Math.round(
       (matchedKeywords.length / jobRequirements.length) * 100
     );
     
@@ -101,20 +134,61 @@ export const matchResumesToJob = (
       }
     }
     
-    // Extract skills (simplified)
+    // Extract skills
     const skills = extractKeywords(text);
     
     return {
       id: resume.id,
       fileName: resume.fileName,
-      matchScore,
+      matchScore: keywordMatchScore,
       matchedKeywords,
       relevantExperience: experience,
       education,
       skills,
-      keyPoints: resume.keyPoints
+      keyPoints: resume.keyPoints,
+      // Store the raw text for embedding later
+      rawText: resume.text
     };
   });
+  
+  // Now enhance the matching with embeddings if we have job requirements text
+  if (jobRequirements.length > 0) {
+    // Create a combined job requirements text
+    const combinedJobRequirements = jobRequirements.join(" ");
+    
+    // Compute embedding for job description
+    const jobEmbedding = computeEmbedding(combinedJobRequirements);
+    
+    // For each resume, compute embedding and similarity
+    return keywordMatches.map(match => {
+      // Compute embedding for resume
+      const resumeEmbedding = computeEmbedding(match.rawText);
+      
+      // Compute similarity score
+      const similarityScore = cosineSimilarity(jobEmbedding, resumeEmbedding);
+      
+      // Combine traditional score with embedding similarity (weighted)
+      const combinedScore = Math.round(
+        (match.matchScore * 0.7) + (similarityScore * 100 * 0.3)
+      );
+      
+      // Remove the rawText before returning (we don't need to expose it)
+      const { rawText, ...cleanedMatch } = match;
+      
+      return {
+        ...cleanedMatch,
+        matchScore: combinedScore,
+        // Add original scores for debugging/transparency
+        keywordMatchScore: match.matchScore,
+        embeddingMatchScore: Math.round(similarityScore * 100)
+      };
+    })
+    // Sort by the combined score
+    .sort((a, b) => b.matchScore - a.matchScore);
+  }
+  
+  // If no job requirements, just return the keyword matches
+  return keywordMatches;
 };
 
 // Function to match a resume against job description requirements
@@ -158,12 +232,28 @@ export const matchResumeToJob = (resumeData: {
     (hasEducation ? 10 : 0)
   );
   
+  // Compute embedding-based similarity
+  const resumeEmbedding = computeEmbedding(resumeText);
+  const jobRequirementsText = jobRequirements.skills.join(" ") + 
+    ` ${jobRequirements.experience} years experience` +
+    (jobRequirements.education ? " degree education" : "");
+  const jobEmbedding = computeEmbedding(jobRequirementsText);
+  
+  const embeddingSimilarity = cosineSimilarity(resumeEmbedding, jobEmbedding);
+  const embeddingScore = Math.round(embeddingSimilarity * 100);
+  
+  // Combined score (weighted)
+  const finalScore = Math.round(
+    (overallScore * 0.7) + (embeddingScore * 0.3)
+  );
+  
   return {
-    score: overallScore,
+    score: finalScore,
     matchedSkills,
     skillsMatchPercentage,
     hasExperience,
     hasEducation,
+    embeddingScore,
     keyPoints: resumeData.keyPoints
   };
 };

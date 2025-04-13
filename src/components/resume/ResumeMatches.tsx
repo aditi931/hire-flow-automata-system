@@ -1,8 +1,9 @@
+
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { FileText, CheckCircle, User, Briefcase, GraduationCap, Mail } from 'lucide-react';
+import { FileText, CheckCircle, User, Briefcase, GraduationCap, Mail, Brain } from 'lucide-react';
 import { ResumeMatchResult } from '@/utils/resumeMatching';
 import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -71,6 +72,12 @@ const ResumeMatches: React.FC<ResumeMatchesProps> = ({
     });
   };
 
+  const getScoreBadgeColor = (score: number) => {
+    if (score >= 70) return 'bg-green-500';
+    if (score >= 50) return 'bg-yellow-500';
+    return 'bg-gray-500';
+  };
+
   if (matches.length === 0) {
     return (
       <Card className="w-full">
@@ -128,13 +135,18 @@ const ResumeMatches: React.FC<ResumeMatchesProps> = ({
                   />
                   <CardTitle className="text-lg">{match.fileName}</CardTitle>
                 </div>
-                <Badge className={`
-                  ${match.matchScore >= 70 ? 'bg-green-500' : 
-                    match.matchScore >= 50 ? 'bg-yellow-500' : 
-                    'bg-gray-500'}
-                `}>
-                  {match.matchScore}% Match
-                </Badge>
+                <div className="flex flex-col items-end space-y-1">
+                  <Badge className={getScoreBadgeColor(match.matchScore)}>
+                    {match.matchScore}% Match
+                  </Badge>
+                  {/* Show embedding score if available */}
+                  {match.embeddingMatchScore && (
+                    <div className="flex items-center text-xs text-gray-500">
+                      <Brain className="h-3 w-3 mr-1" />
+                      <span>AI Similarity: {match.embeddingMatchScore}%</span>
+                    </div>
+                  )}
+                </div>
               </div>
               <CardDescription>
                 {match.matchedKeywords.length} keywords matched

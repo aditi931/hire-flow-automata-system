@@ -4,7 +4,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useToast } from '@/hooks/use-toast';
-import { Clipboard, Check } from 'lucide-react';
+import { Clipboard, Check, FileSpreadsheet } from 'lucide-react';
+import { extractRequirementsFromJobDescription } from '@/utils/resumeMatching';
 
 interface JobDescriptionInputProps {
   onSubmit: (jobDescription: string) => void;
@@ -13,6 +14,11 @@ interface JobDescriptionInputProps {
 const JobDescriptionInput: React.FC<JobDescriptionInputProps> = ({ onSubmit }) => {
   const [jobDescription, setJobDescription] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [parsedRequirements, setParsedRequirements] = useState<{
+    skills: string[];
+    experience: number;
+    education: boolean;
+  } | null>(null);
   const { toast } = useToast();
 
   const handleSubmit = () => {
@@ -27,15 +33,29 @@ const JobDescriptionInput: React.FC<JobDescriptionInputProps> = ({ onSubmit }) =
 
     setIsAnalyzing(true);
     
-    // Simulate analysis delay
-    setTimeout(() => {
-      onSubmit(jobDescription);
+    try {
+      // Parse the job description
+      const requirements = extractRequirementsFromJobDescription(jobDescription);
+      setParsedRequirements(requirements);
+      
+      // Process with a simulated delay (for UI feedback)
+      setTimeout(() => {
+        onSubmit(jobDescription);
+        toast({
+          title: "Job description processed",
+          description: "Your job description has been analyzed for resume matching.",
+        });
+        setIsAnalyzing(false);
+      }, 1000);
+    } catch (error) {
+      console.error("Error processing job description:", error);
       toast({
-        title: "Job description processed",
-        description: "Your job description has been analyzed for resume matching.",
+        title: "Processing error",
+        description: "An error occurred while analyzing the job description.",
+        variant: "destructive",
       });
       setIsAnalyzing(false);
-    }, 1500);
+    }
   };
 
   const handlePaste = async () => {
@@ -56,7 +76,7 @@ const JobDescriptionInput: React.FC<JobDescriptionInputProps> = ({ onSubmit }) =
   };
 
   return (
-    <Card className="w-full">
+    <Card className="w-full" id="job-description-section">
       <CardContent className="p-6">
         <div className="space-y-4">
           <div className="flex justify-between items-center">
@@ -78,6 +98,26 @@ const JobDescriptionInput: React.FC<JobDescriptionInputProps> = ({ onSubmit }) =
             value={jobDescription}
             onChange={(e) => setJobDescription(e.target.value)}
           />
+          
+          {parsedRequirements && (
+            <div className="bg-gray-50 p-3 rounded-md border border-gray-200">
+              <h4 className="font-medium text-sm mb-2">Parsed Requirements:</h4>
+              <div className="space-y-1 text-sm">
+                <div className="flex items-start">
+                  <span className="font-semibold w-24">Skills:</span>
+                  <span className="flex-1">{parsedRequirements.skills.join(', ')}</span>
+                </div>
+                <div className="flex items-start">
+                  <span className="font-semibold w-24">Experience:</span>
+                  <span>{parsedRequirements.experience} years</span>
+                </div>
+                <div className="flex items-start">
+                  <span className="font-semibold w-24">Education:</span>
+                  <span>{parsedRequirements.education ? 'Required' : 'Not specified'}</span>
+                </div>
+              </div>
+            </div>
+          )}
           
           <div className="text-xs text-gray-500">
             <p>For better results, include:</p>
