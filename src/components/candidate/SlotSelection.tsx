@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Calendar as CalendarIcon, Clock, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { DayContentProps } from 'react-day-picker';
 
 interface TimeSlot {
   id: string;
@@ -61,17 +62,27 @@ const SlotSelection: React.FC = () => {
   };
   
   // Custom day renderer to highlight days with available slots
-  const dayWithSlotsRenderer = (day: Date) => {
+  const dayWithSlotsRenderer = (props: DayContentProps) => {
+    const date = props.date;
+    if (!date) return null;
+    
     const hasSlots = availableSlots.some(slot => 
-      slot.date.getDate() === day.getDate() && 
-      slot.date.getMonth() === day.getMonth() && 
-      slot.date.getFullYear() === day.getFullYear()
+      slot.date && date &&
+      slot.date.getDate() === date.getDate() && 
+      slot.date.getMonth() === date.getMonth() && 
+      slot.date.getFullYear() === date.getFullYear()
     );
     
-    return hasSlots ? <div className="relative h-8 w-8 p-0 font-normal aria-selected:opacity-100">
-      <span className="absolute right-0 top-0 h-1.5 w-1.5 rounded-full bg-hiring-secondary"></span>
-      <span>{day.getDate()}</span>
-    </div> : day.getDate();
+    if (hasSlots) {
+      return (
+        <div className="relative h-8 w-8 p-0 font-normal aria-selected:opacity-100">
+          <span className="absolute right-0 top-0 h-1.5 w-1.5 rounded-full bg-hiring-secondary"></span>
+          <span>{date.getDate()}</span>
+        </div>
+      );
+    }
+    
+    return <span>{date.getDate()}</span>;
   };
   
   const formattedDate = selectedDate ? 
@@ -93,7 +104,7 @@ const SlotSelection: React.FC = () => {
             onSelect={handleDateSelect}
             className="rounded-md border"
             components={{
-              DayContent: ({ day }) => dayWithSlotsRenderer(day)
+              DayContent: dayWithSlotsRenderer
             }}
           />
         </CardContent>
