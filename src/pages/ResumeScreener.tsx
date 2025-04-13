@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import PageTitle from '@/components/ui/PageTitle';
 import { Card, CardContent } from '@/components/ui/card';
@@ -15,7 +14,8 @@ import {
   extractKeywords, 
   extractResumeContent, 
   matchResumesToJob,
-  ResumeMatchResult
+  ResumeMatchResult,
+  extractRequirementsFromJobDescription
 } from '@/utils/resumeMatching';
 
 // Mock data
@@ -90,6 +90,11 @@ const ResumeScreener: React.FC = () => {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [jobDescription, setJobDescription] = useState<string>('');
   const [resumeMatches, setResumeMatches] = useState<ResumeMatchResult[]>([]);
+  const [jobRequirements, setJobRequirements] = useState({
+    skills: [],
+    experience: 0,
+    education: false
+  });
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
   
@@ -147,6 +152,19 @@ const ResumeScreener: React.FC = () => {
       title: "Resumes Uploaded",
       description: `${files.length} resumes are ready for processing.`,
     });
+  };
+  
+  const handleProcessJobDescription = (jdText: string) => {
+    // Process the job description to extract skills, etc.
+    const requirements = extractRequirementsFromJobDescription(jdText);
+    
+    setJobRequirements({
+      skills: requirements.skills || [],
+      experience: requirements.experience || 0,
+      education: requirements.education || false
+    });
+    
+    setActiveStep('upload');
   };
   
   const handleJobDescriptionSubmit = async (description: string) => {
@@ -307,7 +325,7 @@ const ResumeScreener: React.FC = () => {
         <TabsContent value="auto">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             <ResumeUpload onUploadComplete={handleUploadComplete} />
-            <JobDescriptionInput onSubmit={handleJobDescriptionSubmit} />
+            <JobDescriptionInput onSubmit={handleProcessJobDescription} />
           </div>
           
           {isProcessing ? (

@@ -7,7 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Clock, Plus, Trash2 } from 'lucide-react';
+import { Clock, Plus, Trash2, AlertCircle } from 'lucide-react';
+import { addHours, isSunday, isToday, isAfter, startOfDay, format } from 'date-fns';
+import { useToast } from '@/hooks/use-toast';
 
 interface TimeSlot {
   id: string;
@@ -26,12 +28,48 @@ const AvailabilityCalendar: React.FC = () => {
   const [selectedTimeSlots, setSelectedTimeSlots] = useState<TimeSlot[]>([]);
   const [startTime, setStartTime] = useState<string>("09:00");
   const [endTime, setEndTime] = useState<string>("09:30");
+  const { toast } = useToast();
+  
+  // Function to check if a date is disabled (past or Sunday)
+  const isDateDisabled = (date: Date) => {
+    const today = startOfDay(new Date());
+    return isSunday(date) || !isAfter(date, today);
+  };
+
+  // Handle date selection
+  const handleDateSelect = (date: Date | undefined) => {
+    if (date && !isDateDisabled(date)) {
+      setSelectedDate(date);
+    }
+  };
   
   const addTimeSlot = () => {
     // Validation: end time must be after start time
     if (timeOptions.indexOf(endTime) <= timeOptions.indexOf(startTime)) {
-      alert("End time must be after start time");
+      toast({
+        title: "Invalid Time Range",
+        description: "End time must be after start time",
+        variant: "destructive",
+      });
       return;
+    }
+    
+    // Check if selected date is today and if the time slot is at least 1 hour from now
+    if (isToday(selectedDate as Date)) {
+      const now = new Date();
+      const [startHour, startMinute] = startTime.split(':').map(Number);
+      const slotTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), startHour, startMinute);
+      
+      const oneHourFromNow = addHours(now, 1);
+      
+      if (slotTime < oneHourFromNow) {
+        toast({
+          title: "Invalid Time Slot",
+          description: "Time slots must be at least 1 hour from current time",
+          variant: "destructive",
+        });
+        return;
+      }
     }
     
     // Check for overlapping slots
@@ -49,7 +87,11 @@ const AvailabilityCalendar: React.FC = () => {
     });
     
     if (isOverlapping) {
-      alert("This time slot overlaps with an existing slot");
+      toast({
+        title: "Overlapping Time Slot",
+        description: "This time slot overlaps with an existing slot",
+        variant: "destructive",
+      });
       return;
     }
     
@@ -61,6 +103,11 @@ const AvailabilityCalendar: React.FC = () => {
     
     setSelectedTimeSlots([...selectedTimeSlots, newSlot]);
     
+    toast({
+      title: "Time Slot Added",
+      description: `Added availability for ${format(selectedDate as Date, 'EEEE, MMMM d')} at ${startTime} - ${endTime}`,
+    });
+    
     // Reset selection to the next 30-minute slot
     const endTimeIndex = timeOptions.indexOf(endTime);
     if (endTimeIndex < timeOptions.length - 1) {
@@ -71,10 +118,23 @@ const AvailabilityCalendar: React.FC = () => {
   
   const removeTimeSlot = (id: string) => {
     setSelectedTimeSlots(selectedTimeSlots.filter(slot => slot.id !== id));
+    toast({
+      title: "Time Slot Removed",
+      description: "The time slot has been removed from your availability",
+    });
+  };
+
+  const saveAvailability = () => {
+    // Here is where we would save to a database
+    // For now, we'll just show a success toast
+    toast({
+      title: "Availability Saved",
+      description: `Your availability has been saved for ${format(selectedDate as Date, 'EEEE, MMMM d')}`,
+    });
   };
   
   const formattedDate = selectedDate ? 
-    selectedDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : '';
+    format(selectedDate, 'EEEE, MMMM d, yyyy') : '';
   
   return (
     <div className="grid md:grid-cols-5 gap-6">
@@ -86,9 +146,17 @@ const AvailabilityCalendar: React.FC = () => {
           <Calendar
             mode="single"
             selected={selectedDate}
-            onSelect={setSelectedDate}
+            onSelect={handleDateSelect}
+            disabled={isDateDisabled}
             className="rounded-md border"
           />
+          
+          {selectedDate && isSunday(selectedDate) && (
+            <div className="mt-4 text-sm text-red-500 flex items-center">
+              <AlertCircle className="h-4 w-4 mr-1" />
+              Sundays are not available for interviews
+            </div>
+          )}
         </CardContent>
       </Card>
       
@@ -137,9 +205,17 @@ const AvailabilityCalendar: React.FC = () => {
             <Button 
               onClick={addTimeSlot} 
               className="mt-4 w-full bg-hiring-primary hover:bg-hiring-primary/90"
+              disabled={!selectedDate || isSunday(selectedDate as Date)}
             >
               <Plus className="mr-2 h-4 w-4" /> Add Time Slot
             </Button>
+            
+            {isToday(selectedDate as Date) && (
+              <div className="mt-2 text-sm text-amber-600 flex items-center">
+                <AlertCircle className="h-4 w-4 mr-1" />
+                Time slots must be at least 1 hour from current time
+              </div>
+            )}
           </CardContent>
         </Card>
         
@@ -179,6 +255,7 @@ const AvailabilityCalendar: React.FC = () => {
             <Button 
               className="w-full bg-hiring-secondary hover:bg-hiring-secondary/90"
               disabled={selectedTimeSlots.length === 0}
+              onClick={saveAvailability}
             >
               Save Availability
             </Button>

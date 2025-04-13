@@ -5,44 +5,81 @@ import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Calendar as CalendarIcon, Clock, CheckCircle2 } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { DayContentProps } from 'react-day-picker';
+import { addHours, isSunday, isToday, isAfter, startOfDay, format } from 'date-fns';
 
 interface TimeSlot {
   id: string;
   date: Date;
   start: string;
   end: string;
+  interviewerId: string;
+  jobId: string;
 }
 
 // Mock available slots data
 const availableSlots: TimeSlot[] = [
-  { id: '1', date: new Date(2025, 3, 15), start: '10:00', end: '10:30' },
-  { id: '2', date: new Date(2025, 3, 15), start: '11:00', end: '11:30' },
-  { id: '3', date: new Date(2025, 3, 15), start: '14:00', end: '14:30' },
-  { id: '4', date: new Date(2025, 3, 16), start: '09:30', end: '10:00' },
-  { id: '5', date: new Date(2025, 3, 16), start: '13:00', end: '13:30' },
-  { id: '6', date: new Date(2025, 3, 17), start: '11:30', end: '12:00' },
-  { id: '7', date: new Date(2025, 3, 17), start: '15:30', end: '16:00' },
+  { id: '1', date: new Date(2025, 3, 15), start: '10:00', end: '10:30', interviewerId: 'int1', jobId: 'job1' },
+  { id: '2', date: new Date(2025, 3, 15), start: '11:00', end: '11:30', interviewerId: 'int1', jobId: 'job1' },
+  { id: '3', date: new Date(2025, 3, 15), start: '14:00', end: '14:30', interviewerId: 'int2', jobId: 'job1' },
+  { id: '4', date: new Date(2025, 3, 16), start: '09:30', end: '10:00', interviewerId: 'int2', jobId: 'job1' },
+  { id: '5', date: new Date(2025, 3, 16), start: '13:00', end: '13:30', interviewerId: 'int1', jobId: 'job2' },
+  { id: '6', date: new Date(2025, 3, 17), start: '11:30', end: '12:00', interviewerId: 'int2', jobId: 'job2' },
+  { id: '7', date: new Date(2025, 3, 17), start: '15:30', end: '16:00', interviewerId: 'int1', jobId: 'job1' },
 ];
 
 const SlotSelection: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const { toast } = useToast();
+
+  // Function to check if a date is disabled (past or Sunday)
+  const isDateDisabled = (date: Date) => {
+    const today = startOfDay(new Date());
+    return isSunday(date) || !isAfter(date, today);
+  };
   
-  const filteredSlots = selectedDate 
-    ? availableSlots.filter(slot => 
+  // Filter slots based on current date and validation rules
+  const getValidSlots = () => {
+    if (!selectedDate) return [];
+    
+    return availableSlots.filter(slot => {
+      // Match the selected date
+      const sameDate = 
         slot.date.getDate() === selectedDate.getDate() && 
         slot.date.getMonth() === selectedDate.getMonth() && 
-        slot.date.getFullYear() === selectedDate.getFullYear()
-      )
-    : [];
+        slot.date.getFullYear() === selectedDate.getFullYear();
+      
+      if (!sameDate) return false;
+      
+      // If today, check if slot is at least 1 hour from now
+      if (isToday(selectedDate)) {
+        const now = new Date();
+        const [startHour, startMinute] = slot.start.split(':').map(Number);
+        const slotTime = new Date(
+          now.getFullYear(), 
+          now.getMonth(), 
+          now.getDate(), 
+          startHour, 
+          startMinute
+        );
+        
+        return slotTime > addHours(now, 1);
+      }
+      
+      return true;
+    });
+  };
+  
+  const filteredSlots = getValidSlots();
   
   const handleDateSelect = (date: Date | undefined) => {
-    setSelectedDate(date);
-    setSelectedSlot(null);
+    if (date && !isDateDisabled(date)) {
+      setSelectedDate(date);
+      setSelectedSlot(null);
+    }
   };
   
   const handleSlotSelect = (slotId: string) => {
@@ -56,22 +93,33 @@ const SlotSelection: React.FC = () => {
     
     toast({
       title: "Interview Scheduled!",
-      description: `Your interview is scheduled for ${slot?.date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })} at ${slot?.start}-${slot?.end}.`,
+      description: `Your interview is scheduled for ${format(slot?.date as Date, 'EEEE, MMMM d')} at ${slot?.start}-${slot?.end}.`,
       duration: 5000,
     });
+    
+    // Here is where we would save the booking to a database
+    // We would associate the candidate ID with the interview slot
   };
   
   // Custom day renderer to highlight days with available slots
   const dayWithSlotsRenderer = (props: DayContentProps) => {
     const date = props.date;
-    if (!date) return null;
+    if (!date) return <span>{props.date?.getDate()}</span>;
     
-    const hasSlots = availableSlots.some(slot => 
-      slot.date && date &&
-      slot.date.getDate() === date.getDate() && 
-      slot.date.getMonth() === date.getMonth() && 
-      slot.date.getFullYear() === date.getFullYear()
-    );
+    // Don't highlight Sundays or past dates
+    if (isDateDisabled(date)) {
+      return <span>{date.getDate()}</span>;
+    }
+    
+    const hasSlots = availableSlots.some(slot => {
+      if (!slot.date) return false;
+      
+      return (
+        slot.date.getDate() === date.getDate() && 
+        slot.date.getMonth() === date.getMonth() && 
+        slot.date.getFullYear() === date.getFullYear()
+      );
+    });
     
     if (hasSlots) {
       return (
@@ -86,7 +134,7 @@ const SlotSelection: React.FC = () => {
   };
   
   const formattedDate = selectedDate ? 
-    selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : '';
+    format(selectedDate, 'EEEE, MMMM d, yyyy') : '';
   
   return (
     <div className="grid md:grid-cols-5 gap-6">
@@ -102,11 +150,19 @@ const SlotSelection: React.FC = () => {
             mode="single"
             selected={selectedDate}
             onSelect={handleDateSelect}
+            disabled={isDateDisabled}
             className="rounded-md border"
             components={{
               DayContent: dayWithSlotsRenderer
             }}
           />
+          
+          {selectedDate && isSunday(selectedDate) && (
+            <div className="mt-4 text-sm text-red-500 flex items-center">
+              <AlertCircle className="h-4 w-4 mr-1" />
+              Sundays are not available for interviews
+            </div>
+          )}
         </CardContent>
       </Card>
       
@@ -151,6 +207,13 @@ const SlotSelection: React.FC = () => {
                   </Button>
                 ))}
               </div>
+              
+              {isToday(selectedDate as Date) && (
+                <div className="mb-4 text-sm text-amber-600 flex items-center">
+                  <AlertCircle className="h-4 w-4 mr-1" />
+                  Only showing time slots that are at least 1 hour from current time
+                </div>
+              )}
               
               <Separator className="my-4" />
               
