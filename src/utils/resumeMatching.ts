@@ -173,3 +173,6 @@ export const rankResumes = (resumes: any[]) => {
   // Sort resumes by match score in descending order
   return resumes.sort((a, b) => b.score - a.score);
 };
+
+// Re-export extractKeywords for backwards compatibility
+export { extractKeywords } from "./keywordExtraction";

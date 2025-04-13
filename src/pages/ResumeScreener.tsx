@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import PageTitle from '@/components/ui/PageTitle';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,11 +12,11 @@ import ResumeUpload from '@/components/resume/ResumeUpload';
 import JobDescriptionInput from '@/components/resume/JobDescriptionInput';
 import ResumeMatches from '@/components/resume/ResumeMatches';
 import { 
-  extractKeywords,
   extractResumeContent,
   matchResumesToJob,
   ResumeMatchResult,
-  extractRequirementsFromJobDescription
+  extractRequirementsFromJobDescription,
+  extractKeywords
 } from '@/utils/resumeMatching';
 import {
   JobDescription,
