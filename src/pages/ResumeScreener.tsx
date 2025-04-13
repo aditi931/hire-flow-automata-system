@@ -11,14 +11,19 @@ import ResumeUpload from '@/components/resume/ResumeUpload';
 import JobDescriptionInput from '@/components/resume/JobDescriptionInput';
 import ResumeMatches from '@/components/resume/ResumeMatches';
 import { 
-  extractKeywords, 
-  extractResumeContent, 
+  extractKeywords,
+  extractResumeContent,
   matchResumesToJob,
   ResumeMatchResult,
   extractRequirementsFromJobDescription
 } from '@/utils/resumeMatching';
+import {
+  JobDescription,
+  Resume,
+  ResumeMatch,
+  sendSlotSelectionEmail
+} from '@/utils/databaseSchema';
 
-// Mock data
 const initialResumes = [
   {
     id: '1',
@@ -91,7 +96,7 @@ const ResumeScreener: React.FC = () => {
   const [jobDescription, setJobDescription] = useState<string>('');
   const [resumeMatches, setResumeMatches] = useState<ResumeMatchResult[]>([]);
   const [jobRequirements, setJobRequirements] = useState({
-    skills: [],
+    skills: [] as string[],
     experience: 0,
     education: false
   });
@@ -155,7 +160,6 @@ const ResumeScreener: React.FC = () => {
   };
   
   const handleProcessJobDescription = (jdText: string) => {
-    // Process the job description to extract skills, etc.
     const requirements = extractRequirementsFromJobDescription(jdText);
     
     setJobRequirements({
@@ -163,8 +167,6 @@ const ResumeScreener: React.FC = () => {
       experience: requirements.experience || 0,
       education: requirements.education || false
     });
-    
-    setActiveStep('upload');
   };
   
   const handleJobDescriptionSubmit = async (description: string) => {
@@ -182,13 +184,10 @@ const ResumeScreener: React.FC = () => {
     setIsProcessing(true);
     
     try {
-      // Extract keywords from job description
       const keywords = extractKeywords(description);
       
-      // Extract content from resumes
       const extractedResumes = await extractResumeContent(uploadedFiles);
       
-      // Match resumes against job keywords
       const matches = matchResumesToJob(extractedResumes, keywords);
       
       setResumeMatches(matches);
@@ -210,20 +209,24 @@ const ResumeScreener: React.FC = () => {
   };
   
   const handleBatchShortlist = (ids: string[]) => {
-    // In a real application, you would update the database
-    // This is just updating the UI for the demo
     toast({
       title: "Candidates Shortlisted",
       description: `${ids.length} candidates have been shortlisted.`,
     });
+    
+    ids.forEach(id => {
+      sendSlotSelectionEmail(id, 'job-1');
+    });
   };
   
   const handleNotifyInterviewers = (ids: string[]) => {
-    // In a real application, you would send emails to interviewers
-    // This is just a UI notification for the demo
     toast({
       title: "Interviewers Notified",
       description: `Interviewers have been notified about ${ids.length} candidates.`,
+    });
+    
+    ids.forEach(id => {
+      sendSlotSelectionEmail(id, 'job-1');
     });
   };
   
